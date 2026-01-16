@@ -9,22 +9,73 @@ definitions:
       success:
         type: boolean
     type: object
+  handlers.AuthRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  handlers.AuthResponse:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+      token:
+        type: string
+    type: object
+  handlers.CreateWebhookRequest:
+    properties:
+      events:
+        type: string
+      url:
+        type: string
+    type: object
+  models.Category:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      slug:
+        type: string
+    type: object
   models.Content:
     properties:
       attributes:
         description: JSON string for flexible data
         type: string
+      blocks:
+        type: object
       body:
         type: string
+      categories:
+        items:
+          $ref: '#/definitions/models.Category'
+        type: array
       created_at:
+        type: string
+      group_id:
+        description: UUID to link translations (same content, diff lang)
         type: string
       id:
         type: integer
+      language:
+        type: string
+      published_at:
+        type: string
       slug:
         type: string
       status:
         description: DRAFT, PUBLISHED
         type: string
+      tags:
+        items:
+          $ref: '#/definitions/models.Tag'
+        type: array
       title:
         type: string
       type:
@@ -39,12 +90,27 @@ definitions:
     properties:
       attributes:
         type: string
+      blocks:
+        type: object
       body:
+        type: string
+      category_ids:
+        items:
+          type: integer
+        type: array
+      language:
+        type: string
+      published_at:
         type: string
       slug:
         type: string
       status:
         type: string
+      tags:
+        description: Tag names
+        items:
+          type: string
+        type: array
       title:
         type: string
       type:
@@ -54,10 +120,25 @@ definitions:
     properties:
       attributes:
         type: string
+      blocks:
+        type: object
       body:
+        type: string
+      category_ids:
+        items:
+          type: integer
+        type: array
+      language:
+        type: string
+      published_at:
         type: string
       status:
         type: string
+      tags:
+        description: Tag names
+        items:
+          type: string
+        type: array
       title:
         type: string
       type:
@@ -67,6 +148,8 @@ definitions:
     properties:
       attributes:
         type: string
+      blocks:
+        type: object
       body:
         type: string
       changed_at:
@@ -75,6 +158,8 @@ definitions:
         type: integer
       id:
         type: integer
+      language:
+        type: string
       status:
         type: string
       title:
@@ -100,6 +185,45 @@ definitions:
       url:
         type: string
     type: object
+  models.PaginatedContentResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/models.Content'
+        type: array
+      meta:
+        properties:
+          limit:
+            type: integer
+          page:
+            type: integer
+          total:
+            type: integer
+        type: object
+    type: object
+  models.Tag:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      slug:
+        type: string
+    type: object
+  models.Webhook:
+    properties:
+      created_at:
+        type: integer
+      enabled:
+        type: boolean
+      events:
+        description: 'Comma-separated: "content.create,content.update"'
+        type: string
+      id:
+        type: integer
+      url:
+        type: string
+    type: object
 host: localhost:3000
 info:
   contact:
@@ -112,9 +236,60 @@ info:
   title: ContentFlow CMS API
   version: "1.0"
 paths:
-  /api/content:
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Logs in a user and returns a JWT token
+      parameters:
+      - description: Login Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AuthRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.AuthResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+      summary: Login user
+      tags:
+      - Auth
+  /api/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user account
+      parameters:
+      - description: Register Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AuthRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+      summary: Register a new user
+      tags:
+      - Auth
+  /api/categories:
     get:
-      description: Retrieves all content items
       produces:
       - application/json
       responses:
@@ -122,13 +297,77 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.Content'
+              $ref: '#/definitions/models.Category'
             type: array
+      summary: Get all categories
+      tags:
+      - Taxonomies
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Category
+        in: body
+        name: category
+        required: true
+        schema:
+          $ref: '#/definitions/models.Category'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Category'
+      security:
+      - Bearer: []
+      summary: Create a new category
+      tags:
+      - Taxonomies
+  /api/content:
+    get:
+      description: Retrieves content items with search, filters and pagination
+      parameters:
+      - description: Search term
+        in: query
+        name: q
+        type: string
+      - description: Content Type
+        in: query
+        name: type
+        type: string
+      - description: Content Status
+        in: query
+        name: status
+        type: string
+      - description: Language code
+        in: query
+        name: lang
+        type: string
+      - description: Comma separated tags
+        in: query
+        name: tags
+        type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Items per page (default 10)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PaginatedContentResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/apierrors.AppError'
-      summary: Get all content
+      summary: Get all content with filters
       tags:
       - Content
     post:
@@ -157,6 +396,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/apierrors.AppError'
+      security:
+      - Bearer: []
       summary: Create new content
       tags:
       - Content
@@ -214,6 +455,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/apierrors.AppError'
+      security:
+      - Bearer: []
       summary: Update content
       tags:
       - Content
@@ -242,6 +485,43 @@ paths:
       summary: Get content history
       tags:
       - Content
+  /api/content/{id}/localize:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new localized version of an existing content
+      parameters:
+      - description: Original Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Translated Content
+        in: body
+        name: content
+        required: true
+        schema:
+          $ref: '#/definitions/models.ContentCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Content'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+      security:
+      - Bearer: []
+      summary: Add translation
+      tags:
+      - Content
   /api/content/{id}/revert/{version}:
     post:
       description: Reverts content to a specific version
@@ -267,6 +547,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/apierrors.AppError'
+      security:
+      - Bearer: []
       summary: Revert content version
       tags:
       - Content
@@ -300,7 +582,72 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/apierrors.AppError'
+      security:
+      - Bearer: []
       summary: Upload media file
       tags:
       - Media
+  /api/tags:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Tag'
+            type: array
+      summary: Get all tags
+      tags:
+      - Taxonomies
+  /api/webhooks:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Webhook'
+            type: array
+      security:
+      - Bearer: []
+      summary: List webhooks
+      tags:
+      - Webhooks
+    post:
+      consumes:
+      - application/json
+      description: Register a new webhook for events
+      parameters:
+      - description: Webhook Config
+        in: body
+        name: webhook
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateWebhookRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Webhook'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+      security:
+      - Bearer: []
+      summary: Create a webhook
+      tags:
+      - Webhooks
+securityDefinitions:
+  Bearer:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

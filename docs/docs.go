@@ -22,24 +22,203 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/content": {
-            "get": {
-                "description": "Retrieves all content items",
+        "/api/auth/login": {
+            "post": {
+                "description": "Logs in a user and returns a JWT token",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Content"
+                    "Auth"
                 ],
-                "summary": "Get all content",
+                "summary": "Login user",
+                "parameters": [
+                    {
+                        "description": "Login Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.AuthRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.AuthResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/register": {
+            "post": {
+                "description": "Creates a new user account",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Register a new user",
+                "parameters": [
+                    {
+                        "description": "Register Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.AuthRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.AuthResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/categories": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Taxonomies"
+                ],
+                "summary": "Get all categories",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.Content"
+                                "$ref": "#/definitions/models.Category"
                             }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Taxonomies"
+                ],
+                "summary": "Create a new category",
+                "parameters": [
+                    {
+                        "description": "Category",
+                        "name": "category",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Category"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Category"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/content": {
+            "get": {
+                "description": "Retrieves content items with search, filters and pagination",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Content"
+                ],
+                "summary": "Get all content with filters",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search term",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Content Type",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Content Status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Language code",
+                        "name": "lang",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma separated tags",
+                        "name": "tags",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page (default 10)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PaginatedContentResponse"
                         }
                     },
                     "500": {
@@ -51,6 +230,11 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
                 "description": "Creates a new content item",
                 "consumes": [
                     "application/json"
@@ -130,6 +314,11 @@ const docTemplate = `{
                 }
             },
             "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
                 "description": "Updates an existing content item",
                 "consumes": [
                     "application/json"
@@ -219,8 +408,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/content/{id}/localize": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Creates a new localized version of an existing content",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Content"
+                ],
+                "summary": "Add translation",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Original Content ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Translated Content",
+                        "name": "content",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ContentCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Content"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/content/{id}/revert/{version}": {
             "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
                 "description": "Reverts content to a specific version",
                 "produces": [
                     "application/json"
@@ -263,6 +515,11 @@ const docTemplate = `{
         },
         "/api/media": {
             "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
                 "description": "Uploads a media file (image) and associates it with optional content",
                 "consumes": [
                     "multipart/form-data"
@@ -310,6 +567,98 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/tags": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Taxonomies"
+                ],
+                "summary": "Get all tags",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Tag"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/webhooks": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Webhooks"
+                ],
+                "summary": "List webhooks",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Webhook"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Register a new webhook for events",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Webhooks"
+                ],
+                "summary": "Create a webhook",
+                "parameters": [
+                    {
+                        "description": "Webhook Config",
+                        "name": "webhook",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.CreateWebhookRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Webhook"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.AppError"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -327,6 +676,59 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.AuthRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.AuthResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.CreateWebhookRequest": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Category": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
         "models.Content": {
             "type": "object",
             "properties": {
@@ -334,14 +736,33 @@ const docTemplate = `{
                     "description": "JSON string for flexible data",
                     "type": "string"
                 },
+                "blocks": {
+                    "type": "object"
+                },
                 "body": {
                     "type": "string"
+                },
+                "categories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Category"
+                    }
                 },
                 "created_at": {
                     "type": "string"
                 },
+                "group_id": {
+                    "description": "UUID to link translations (same content, diff lang)",
+                    "type": "string"
+                },
                 "id": {
                     "type": "integer"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "published_at": {
+                    "type": "string"
                 },
                 "slug": {
                     "type": "string"
@@ -349,6 +770,12 @@ const docTemplate = `{
                 "status": {
                     "description": "DRAFT, PUBLISHED",
                     "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Tag"
+                    }
                 },
                 "title": {
                     "type": "string"
@@ -371,7 +798,22 @@ const docTemplate = `{
                 "attributes": {
                     "type": "string"
                 },
+                "blocks": {
+                    "type": "object"
+                },
                 "body": {
+                    "type": "string"
+                },
+                "category_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "language": {
+                    "type": "string"
+                },
+                "published_at": {
                     "type": "string"
                 },
                 "slug": {
@@ -379,6 +821,13 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
+                },
+                "tags": {
+                    "description": "Tag names",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "title": {
                     "type": "string"
@@ -394,11 +843,33 @@ const docTemplate = `{
                 "attributes": {
                     "type": "string"
                 },
+                "blocks": {
+                    "type": "object"
+                },
                 "body": {
+                    "type": "string"
+                },
+                "category_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "language": {
+                    "type": "string"
+                },
+                "published_at": {
                     "type": "string"
                 },
                 "status": {
                     "type": "string"
+                },
+                "tags": {
+                    "description": "Tag names",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "title": {
                     "type": "string"
@@ -414,6 +885,9 @@ const docTemplate = `{
                 "attributes": {
                     "type": "string"
                 },
+                "blocks": {
+                    "type": "object"
+                },
                 "body": {
                     "type": "string"
                 },
@@ -425,6 +899,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "integer"
+                },
+                "language": {
+                    "type": "string"
                 },
                 "status": {
                     "type": "string"
@@ -463,6 +940,74 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "models.PaginatedContentResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Content"
+                    }
+                },
+                "meta": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {
+                            "type": "integer"
+                        },
+                        "page": {
+                            "type": "integer"
+                        },
+                        "total": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            }
+        },
+        "models.Tag": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Webhook": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "events": {
+                    "description": "Comma-separated: \"content.create,content.update\"",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "Bearer": {
+            "description": "Type \"Bearer\" followed by a space and JWT token.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }`

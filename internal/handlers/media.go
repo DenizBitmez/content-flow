@@ -22,6 +22,7 @@ import (
 // @Success 200 {object} models.Media
 // @Failure 400 {object} apierrors.AppError
 // @Failure 500 {object} apierrors.AppError
+// @Security Bearer
 // @Router /api/media [post]
 func UploadMedia(c *fiber.Ctx) error {
 	file, err := c.FormFile("image")
