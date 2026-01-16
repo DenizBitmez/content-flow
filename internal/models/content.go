@@ -31,3 +31,20 @@ type ContentVersion struct {
 	Version    int       `json:"version"`
 	ChangedAt  time.Time `json:"changed_at"`
 }
+
+type ContentUpdateRequest struct {
+	Title      string `json:"title"`
+	Body       string `json:"body"`
+	Type       string `json:"type"`
+	Attributes string `json:"attributes"`
+	Status     string `json:"status"`
+}
+
+type ContentCreateRequest struct {
+	Title      string `json:"title"`
+	Slug       string `json:"slug"`
+	Body       string `json:"body"`
+	Type       string `json:"type"`
+	Attributes string `json:"attributes"`
+	Status     string `json:"status"`
+}

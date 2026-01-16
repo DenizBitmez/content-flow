@@ -3,6 +3,7 @@ package handlers
 import (
 	"content-flow/internal/database"
 	"content-flow/internal/models"
+	"content-flow/internal/pkgs/apierrors"
 	"fmt"
 	"time"
 
@@ -10,10 +11,22 @@ import (
 	"github.com/google/uuid"
 )
 
+// UploadMedia godoc
+// @Summary Upload media file
+// @Description Uploads a media file (image) and associates it with optional content
+// @Tags Media
+// @Accept multipart/form-data
+// @Produce json
+// @Param image formData file true "Image file"
+// @Param content_id formData int false "Content ID to associate"
+// @Success 200 {object} models.Media
+// @Failure 400 {object} apierrors.AppError
+// @Failure 500 {object} apierrors.AppError
+// @Router /api/media [post]
 func UploadMedia(c *fiber.Ctx) error {
 	file, err := c.FormFile("image")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Image upload failed"})
+		return apierrors.BadRequest("Image upload failed: " + err.Error())
 	}
 
 	// Generate a unique filename
@@ -22,7 +35,7 @@ func UploadMedia(c *fiber.Ctx) error {
 	path := fmt.Sprintf("./uploads/%s", filename)
 
 	if err := c.SaveFile(file, path); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to save file"})
+		return apierrors.Internal("Failed to save file: " + err.Error())
 	}
 
 	// Save to DB
@@ -34,13 +47,15 @@ func UploadMedia(c *fiber.Ctx) error {
 	}
 
 	if contentID := c.FormValue("content_id"); contentID != "" {
-		// Simple conversion, ignoring error for brevity in this step, ideally should handle
 		var cid uint
-		fmt.Sscanf(contentID, "%d", &cid)
-		media.ContentID = cid
+		if _, err := fmt.Sscanf(contentID, "%d", &cid); err == nil {
+			media.ContentID = cid
+		}
 	}
 
-	database.DB.Create(&media)
+	if result := database.DB.Create(&media); result.Error != nil {
+		return apierrors.Internal("Database error: " + result.Error.Error())
+	}
 
 	return c.JSON(media)
 }

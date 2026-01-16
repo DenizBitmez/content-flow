@@ -1,0 +1,306 @@
+basePath: /
+definitions:
+  apierrors.AppError:
+    properties:
+      code:
+        type: integer
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.Content:
+    properties:
+      attributes:
+        description: JSON string for flexible data
+        type: string
+      body:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      slug:
+        type: string
+      status:
+        description: DRAFT, PUBLISHED
+        type: string
+      title:
+        type: string
+      type:
+        description: e.g "Product", "Blog"
+        type: string
+      updated_at:
+        type: string
+      version:
+        type: integer
+    type: object
+  models.ContentCreateRequest:
+    properties:
+      attributes:
+        type: string
+      body:
+        type: string
+      slug:
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+      type:
+        type: string
+    type: object
+  models.ContentUpdateRequest:
+    properties:
+      attributes:
+        type: string
+      body:
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+      type:
+        type: string
+    type: object
+  models.ContentVersion:
+    properties:
+      attributes:
+        type: string
+      body:
+        type: string
+      changed_at:
+        type: string
+      content_id:
+        type: integer
+      id:
+        type: integer
+      status:
+        type: string
+      title:
+        type: string
+      type:
+        type: string
+      version:
+        type: integer
+    type: object
+  models.Media:
+    properties:
+      content_id:
+        description: Optional link to content
+        type: integer
+      created_at:
+        type: string
+      filename:
+        type: string
+      id:
+        type: integer
+      size:
+        type: integer
+      url:
+        type: string
+    type: object
+host: localhost:3000
+info:
+  contact:
+    email: support@contentflow.com
+    name: API Support
+  description: Headless CMS API with dynamic content and media management
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  title: ContentFlow CMS API
+  version: "1.0"
+paths:
+  /api/content:
+    get:
+      description: Retrieves all content items
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Content'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+      summary: Get all content
+      tags:
+      - Content
+    post:
+      consumes:
+      - application/json
+      description: Creates a new content item
+      parameters:
+      - description: Content object
+        in: body
+        name: content
+        required: true
+        schema:
+          $ref: '#/definitions/models.ContentCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Content'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+      summary: Create new content
+      tags:
+      - Content
+  /api/content/{id}:
+    get:
+      description: Retrieves a specific content item by ID
+      parameters:
+      - description: Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Content'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+      summary: Get content by ID
+      tags:
+      - Content
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing content item
+      parameters:
+      - description: Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update Request
+        in: body
+        name: content
+        required: true
+        schema:
+          $ref: '#/definitions/models.ContentUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Content'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+      summary: Update content
+      tags:
+      - Content
+  /api/content/{id}/history:
+    get:
+      description: Retrieves version history for a content item
+      parameters:
+      - description: Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ContentVersion'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+      summary: Get content history
+      tags:
+      - Content
+  /api/content/{id}/revert/{version}:
+    post:
+      description: Reverts content to a specific version
+      parameters:
+      - description: Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Version number
+        in: path
+        name: version
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Content'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+      summary: Revert content version
+      tags:
+      - Content
+  /api/media:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Uploads a media file (image) and associates it with optional content
+      parameters:
+      - description: Image file
+        in: formData
+        name: image
+        required: true
+        type: file
+      - description: Content ID to associate
+        in: formData
+        name: content_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Media'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+      summary: Upload media file
+      tags:
+      - Media
+swagger: "2.0"
