@@ -21,6 +21,8 @@ type Content struct {
 	Version     int            `json:"version"`
 	Categories  []Category     `gorm:"many2many:content_categories;" json:"categories,omitempty"`
 	Tags        []Tag          `gorm:"many2many:content_tags;" json:"tags,omitempty"`
+	AuthorID    uint           `gorm:"index" json:"author_id"`
+	Author      User           `json:"author,omitempty"`
 	PublishedAt *time.Time     `json:"published_at"`
 	Blocks      datatypes.JSON `json:"blocks" swaggertype:"object"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -43,27 +45,33 @@ type ContentVersion struct {
 }
 
 type ContentUpdateRequest struct {
-	Title       string          `json:"title"`
+	Title string `json:"title" validate:"omitempty,min=3"` // omitempty allows partial updates if we handled PATCH, but for PUT usually full replace?
+	// Actually, PUT usually means full replace. But let's assume we might want optional.
+	// If it's PUT, usually all fields are expected or they get zeroed.
+	// Let's stick to strict validation for PUT or check usage.
+	// Since struct is used for generic update, let's just allow omitempty for flexibility or require if it's strictly PUT.
+	// Given previous update logic: services.UpdateContent takes all args.
+	// Let's add standard validation.
 	Body        string          `json:"body"`
 	Blocks      json.RawMessage `json:"blocks" swaggertype:"object"`
-	Type        string          `json:"type"`
+	Type        string          `json:"type" validate:"omitempty"`
 	Attributes  string          `json:"attributes"`
-	Status      string          `json:"status"`
-	Language    string          `json:"language"`
+	Status      string          `json:"status" validate:"omitempty,oneof=DRAFT PUBLISHED SCHEDULED"`
+	Language    string          `json:"language" validate:"omitempty,len=2"`
 	CategoryIDs []uint          `json:"category_ids"`
 	Tags        []string        `json:"tags"` // Tag names
 	PublishedAt *time.Time      `json:"published_at"`
 }
 
 type ContentCreateRequest struct {
-	Title       string          `json:"title"`
-	Slug        string          `json:"slug"`
+	Title       string          `json:"title" validate:"required,min=3"`
+	Slug        string          `json:"slug" validate:"required,min=3"`
 	Body        string          `json:"body"`
 	Blocks      json.RawMessage `json:"blocks" swaggertype:"object"`
-	Type        string          `json:"type"`
+	Type        string          `json:"type" validate:"required"`
 	Attributes  string          `json:"attributes"`
-	Status      string          `json:"status"`
-	Language    string          `json:"language"`
+	Status      string          `json:"status" validate:"required,oneof=DRAFT PUBLISHED SCHEDULED"`
+	Language    string          `json:"language" validate:"required,len=2"`
 	CategoryIDs []uint          `json:"category_ids"`
 	Tags        []string        `json:"tags"` // Tag names
 	PublishedAt *time.Time      `json:"published_at"`

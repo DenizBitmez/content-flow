@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"content-flow/internal/pkgs/apierrors"
+	"content-flow/internal/pkgs/validator"
 	"content-flow/internal/services"
 
 	"github.com/gofiber/fiber/v2"
@@ -18,23 +19,38 @@ type AuthResponse struct {
 	Token   string `json:"token,omitempty"`
 }
 
+type RegisterRequest struct {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=6"`
+	Username string `json:"username" validate:"required,min=3,alphanum"`
+	FullName string `json:"full_name" validate:"required"`
+}
+
 // Register godoc
 // @Summary Register a new user
 // @Description Creates a new user account
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Param request body AuthRequest true "Register Request"
+// @Param request body RegisterRequest true "Register Request"
 // @Success 200 {object} AuthResponse
 // @Failure 400 {object} apierrors.AppError
 // @Router /api/auth/register [post]
 func Register(c *fiber.Ctx) error {
-	req := new(AuthRequest)
+	req := new(RegisterRequest)
 	if err := c.BodyParser(req); err != nil {
 		return apierrors.BadRequest("Cannot parse JSON")
 	}
 
-	if err := services.RegisterUser(req.Email, req.Password); err != nil {
+	if errors := validator.ValidateStruct(req); len(errors) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"errors":  errors,
+			"message": "Validation failed",
+		})
+	}
+
+	if err := services.RegisterUser(req.Email, req.Password, req.Username, req.FullName); err != nil {
 		return apierrors.BadRequest(err.Error())
 	}
 

@@ -25,11 +25,43 @@ definitions:
       token:
         type: string
     type: object
+  handlers.CreateCommentRequest:
+    properties:
+      body:
+        type: string
+    type: object
   handlers.CreateWebhookRequest:
     properties:
       events:
         type: string
       url:
+        type: string
+    type: object
+  handlers.LikeResponse:
+    properties:
+      liked:
+        type: boolean
+      total_likes:
+        type: integer
+    type: object
+  handlers.RegisterRequest:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  handlers.UpdateProfileRequest:
+    properties:
+      avatar:
+        type: string
+      bio:
+        type: string
+      full_name:
         type: string
     type: object
   models.Category:
@@ -43,11 +75,32 @@ definitions:
       slug:
         type: string
     type: object
+  models.Comment:
+    properties:
+      body:
+        type: string
+      content_id:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: integer
+      user:
+        allOf:
+        - $ref: '#/definitions/models.User'
+        description: Preload user info
+      user_id:
+        type: integer
+    type: object
   models.Content:
     properties:
       attributes:
         description: JSON string for flexible data
         type: string
+      author:
+        $ref: '#/definitions/models.User'
+      author_id:
+        type: integer
       blocks:
         type: object
       body:
@@ -210,6 +263,27 @@ definitions:
       slug:
         type: string
     type: object
+  models.User:
+    properties:
+      avatar:
+        type: string
+      bio:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: integer
+      role:
+        type: string
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
   models.Webhook:
     properties:
       created_at:
@@ -273,7 +347,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.AuthRequest'
+          $ref: '#/definitions/handlers.RegisterRequest'
       produces:
       - application/json
       responses:
@@ -460,6 +534,59 @@ paths:
       summary: Update content
       tags:
       - Content
+  /api/content/{id}/comments:
+    get:
+      description: Get all comments for a content
+      parameters:
+      - description: Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Comment'
+            type: array
+      summary: Get comments
+      tags:
+      - Engagement
+    post:
+      consumes:
+      - application/json
+      description: Add a comment to a content
+      parameters:
+      - description: Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Comment Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateCommentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Comment'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+      security:
+      - Bearer: []
+      summary: Add a comment
+      tags:
+      - Engagement
   /api/content/{id}/history:
     get:
       description: Retrieves version history for a content item
@@ -482,9 +609,32 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/apierrors.AppError'
+      security:
+      - Bearer: []
       summary: Get content history
       tags:
       - Content
+  /api/content/{id}/like:
+    post:
+      description: Toggle like status for content
+      parameters:
+      - description: Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.LikeResponse'
+      security:
+      - Bearer: []
+      summary: Like/Unlike content
+      tags:
+      - Engagement
   /api/content/{id}/localize:
     post:
       consumes:
@@ -601,6 +751,76 @@ paths:
       summary: Get all tags
       tags:
       - Taxonomies
+  /api/users/{username}:
+    get:
+      description: Get public profile by username
+      parameters:
+      - description: Username
+        in: path
+        name: username
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.User'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/apierrors.AppError'
+      summary: Get user profile
+      tags:
+      - Users
+  /api/users/{username}/stories:
+    get:
+      description: Get published stories by username
+      parameters:
+      - description: Username
+        in: path
+        name: username
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Content'
+            type: array
+      summary: Get user stories
+      tags:
+      - Users
+  /api/users/profile:
+    put:
+      consumes:
+      - application/json
+      description: Update bio, avatar, full name
+      parameters:
+      - description: Profile Update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: Update profile
+      tags:
+      - Users
   /api/webhooks:
     get:
       produces:

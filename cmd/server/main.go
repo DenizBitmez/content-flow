@@ -37,11 +37,18 @@ func main() {
 
 	// 2. Run Auto-Migrations
 	log.Println("Running Auto-migrations...")
-	database.DB.AutoMigrate(&models.Content{}, &models.ContentVersion{}, &models.Media{}, &models.User{}, &models.Category{}, &models.Tag{}, &models.Webhook{})
+	database.DB.AutoMigrate(&models.Content{}, &models.ContentVersion{}, &models.Media{}, &models.User{}, &models.Category{}, &models.Tag{}, &models.Webhook{}, &models.Comment{}, &models.Like{}, &models.Role{}, &models.Permission{})
 
-	// 3. Setup Fiber App with Global Error Handler
+	// Seed RBAC
+	log.Println("Seeding RBAC...")
+	services.SeedRBAC()
+
+	// 3. Setup Fiber App with Global Error Handler and Limits
 	app := fiber.New(fiber.Config{
 		ErrorHandler: apierrors.ErrorHandler,
+		BodyLimit:    4 * 1024 * 1024, // 4 MB
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
 	})
 	app.Use(logger.New())
 
@@ -72,6 +79,16 @@ func main() {
 	api.Get("/categories", handlers.GetAllCategories)
 	api.Get("/tags", handlers.GetAllTags)
 
+	// Public Read Access for Content
+	// Public Read Access for Content
+	api.Get("/content", handlers.GetAllContent)
+	api.Get("/content/:id", handlers.GetContent)
+	api.Get("/content/:id/comments", handlers.GetComments)
+
+	// User Profiles (Public)
+	api.Get("/users/:username", handlers.GetProfile)
+	api.Get("/users/:username/stories", handlers.GetUserStories)
+
 	// Auth Rate Limiter (5 req/min) - Brute Force Protection
 	authLimiter := limiter.New(limiter.Config{
 		Max:        5,
@@ -101,25 +118,36 @@ func main() {
 	// Taxonomies
 	private.Post("/categories", handlers.CreateCategory)
 
+	// User Profile (Private)
+	private.Put("/users/profile", auth.RequirePermission("user.update"), handlers.UpdateProfile)
+
 	// Webhooks
-	private.Post("/webhooks", handlers.CreateWebhook)
-	private.Get("/webhooks", handlers.GetAllWebhooks)
+	private.Post("/webhooks", auth.RequirePermission("system.settings"), handlers.CreateWebhook)
+	private.Get("/webhooks", auth.RequirePermission("system.settings"), handlers.GetAllWebhooks)
 
 	// Media
-	private.Post("/media", uploadLimiter, handlers.UploadMedia)
+	private.Post("/media", uploadLimiter, auth.RequirePermission("content.create"), handlers.UploadMedia)
 
 	// Content
-	private.Post("/content", handlers.CreateContent)
-	private.Post("/content/:id/localize", handlers.AddTranslation)
-	// Public Read Access for Content
-	api.Get("/content", handlers.GetAllContent)
-	api.Get("/content/:id", handlers.GetContent)
+	private.Post("/content", auth.RequirePermission("content.create"), handlers.CreateContent)
+	private.Post("/content/:id/localize", auth.RequirePermission("content.create"), handlers.AddTranslation)
+	private.Delete("/content/:id", auth.RequirePermission("content.delete"), handlers.DeleteContent)
+
 	// Private Update
-	private.Put("/content/:id", handlers.UpdateContent)
+	private.Put("/content/:id", auth.RequirePermission("content.update"), handlers.UpdateContent)
 
 	// History / Versioning
-	private.Get("/content/:id/history", handlers.GetHistory)
-	private.Post("/content/:id/revert/:version", handlers.RevertContent)
+	private.Get("/content/:id/history", auth.RequirePermission("content.read"), handlers.GetHistory) // Or some other perm? content.read is redundant. Let's use content.update for history access or keep it simple.
+	private.Post("/content/:id/revert/:version", auth.RequirePermission("content.update"), handlers.RevertContent)
+
+	// Interaction (Comments & Likes)
+	private.Post("/content/:id/comments", auth.RequirePermission("comment.create"), handlers.AddComment)
+	private.Post("/content/:id/like", handlers.ToggleLike) // Likes are usually free for all auth users, no specific perm needed? Or create a 'like.create' perm?
+	// Let's assume standard users can like. No strict perm check unless 'user.read' implies standard capability.
+	// The 'Protected()' middleware already checks Valid Token.
+	// Let's leave toggle like without granular check for now, or use "content.read"?
+	// Interaction service might need updating for standard users.
+	// Let's protect comments with 'comment.create' which usually all logged in users have.
 
 	// 5. Start Scheduler (Background Job)
 	go func() {

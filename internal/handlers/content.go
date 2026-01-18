@@ -3,6 +3,7 @@ package handlers
 import (
 	"content-flow/internal/models"
 	"content-flow/internal/pkgs/apierrors"
+	"content-flow/internal/pkgs/validator"
 	"content-flow/internal/services"
 	"strconv"
 	"strings"
@@ -28,6 +29,14 @@ func CreateContent(c *fiber.Ctx) error {
 		return apierrors.BadRequest("Cannot parse JSON: " + err.Error())
 	}
 
+	if errors := validator.ValidateStruct(req); len(errors) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"errors":  errors,
+			"message": "Validation failed",
+		})
+	}
+
 	content := &models.Content{
 		Title:      req.Title,
 		Slug:       req.Slug,
@@ -38,7 +47,9 @@ func CreateContent(c *fiber.Ctx) error {
 		Language:   req.Language,
 	}
 
-	if err := services.CreateContent(content, req.CategoryIDs, req.Tags, req.PublishedAt, req.Blocks); err != nil {
+	userID := uint(c.Locals("user_id").(float64))
+
+	if err := services.CreateContent(content, req.CategoryIDs, req.Tags, req.PublishedAt, req.Blocks, userID); err != nil {
 		return apierrors.Internal("Failed to create content: " + err.Error())
 	}
 
@@ -150,6 +161,14 @@ func UpdateContent(c *fiber.Ctx) error {
 		return apierrors.BadRequest("Cannot parse JSON: " + err.Error())
 	}
 
+	if errors := validator.ValidateStruct(req); len(errors) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"errors":  errors,
+			"message": "Validation failed",
+		})
+	}
+
 	updatedContent, err := services.UpdateContent(uint(id), req.Title, req.Body, req.Type, req.Attributes, req.Status, req.Language, req.CategoryIDs, req.Tags, req.PublishedAt, req.Blocks)
 	if err != nil {
 		return apierrors.Internal("Failed to update content: " + err.Error())
@@ -206,6 +225,7 @@ func AddTranslation(c *fiber.Ctx) error {
 // @Param id path int true "Content ID"
 // @Success 200 {array} models.ContentVersion
 // @Failure 500 {object} apierrors.AppError
+// @Security Bearer
 // @Router /api/content/{id}/history [get]
 func GetHistory(c *fiber.Ctx) error {
 	id, _ := strconv.Atoi(c.Params("id"))
@@ -236,4 +256,22 @@ func RevertContent(c *fiber.Ctx) error {
 		return apierrors.Internal("Failed to revert content: " + err.Error())
 	}
 	return c.JSON(revertedContent)
+}
+
+// DeleteContent godoc
+// @Summary Delete content
+// @Description Soft deletes a content item
+// @Tags Content
+// @Produce json
+// @Param id path int true "Content ID"
+// @Success 200 {object} map[string]bool
+// @Failure 500 {object} apierrors.AppError
+// @Security Bearer
+// @Router /api/content/{id} [delete]
+func DeleteContent(c *fiber.Ctx) error {
+	id, _ := strconv.Atoi(c.Params("id"))
+	if err := services.DeleteContent(uint(id)); err != nil {
+		return apierrors.Internal("Failed to delete content: " + err.Error())
+	}
+	return c.JSON(fiber.Map{"success": true})
 }

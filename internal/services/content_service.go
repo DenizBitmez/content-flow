@@ -13,13 +13,14 @@ import (
 	"gorm.io/gorm"
 )
 
-func CreateContent(content *models.Content, categoryIDs []uint, tagNames []string, publishedAt *time.Time, blocks json.RawMessage) error {
+func CreateContent(content *models.Content, categoryIDs []uint, tagNames []string, publishedAt *time.Time, blocks json.RawMessage, authorID uint) error {
 	if content.Language == "" {
 		content.Language = "en"
 	}
 	if content.GroupID == "" {
 		content.GroupID = uuid.New().String()
 	}
+	content.AuthorID = authorID
 	content.Version = 1
 
 	if publishedAt != nil {
@@ -306,4 +307,12 @@ func PublishScheduledContent() {
 			TriggerWebhooks("content.published", content)
 		}
 	}
+}
+
+func DeleteContent(id uint) error {
+	// GORM soft delete
+	if err := database.DB.Delete(&models.Content{}, id).Error; err != nil {
+		return err
+	}
+	return nil
 }
